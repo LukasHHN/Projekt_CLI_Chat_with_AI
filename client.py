@@ -2,16 +2,14 @@ import socket
 import threading
 import json
 import sys
+import config
 
-# Konfiguration (muss mit Server übereinstimmen)
-HOST = '127.0.0.1'
-PORT = 65432
 
 def receive_messages(sock):
     """Läuft im Hintergrund und druckt Nachrichten auf den Bildschirm."""
     while True:
         try:
-            data = sock.recv(1024)
+            data = sock.recv(16384) # Erhöhung der Puffergröße für längere AI-Antworten
             if not data:
                 print("\n[!] Verbindung zum Server verloren.")
                 break
@@ -42,8 +40,8 @@ def start_client():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     try:
-        client_socket.connect((HOST, PORT))
-        print(f"[*] Verbunden mit Server {HOST}:{PORT}")
+        client_socket.connect((config.HOST, config.PORT))
+        print(f"[*] Verbunden mit Server {config.HOST}:{config.PORT}")
         print("[*] Tippe '/quit', um den Chat zu verlassen.\n")
         
         # Empfangs-Thread starten

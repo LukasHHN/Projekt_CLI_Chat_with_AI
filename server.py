@@ -1,10 +1,9 @@
 import socket
 import threading
 import json
+import config
 
 # Konfiguration
-HOST = '127.0.0.1' # Localhost für den Test
-PORT = 65432
 clients = []       # Liste aller aktiven Client-Sockets
 
 def broadcast(message_data, sender_sock=None):
@@ -26,8 +25,8 @@ def handle_client(conn, addr):
     print(f"[NEUE VERBINDUNG] {addr} hat den Raum betreten.")
     try:
         while True:
-            # Auf Nachrichten warten
-            data = conn.recv(1024)
+            # Auf Nachrichten warten, Erhöhung der Nachrichtengröße auf 16KB für längere AI-Antworten
+            data = conn.recv(16384)
             if not data:
                 break # Leere Daten bedeuten, der Client hat sich getrennt
             
@@ -48,25 +47,34 @@ def handle_client(conn, addr):
 
 def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Option setzen, um den Port nach Neustart sofort wieder freizugeben
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
     try:
-        server_socket.bind((HOST, PORT))
+        server_socket.bind((config.HOST, config.PORT))
         server_socket.listen()
-        print(f"[*] Server lauscht auf {HOST}:{PORT}")
+        
+        # NEU: Der Socket wacht jede Sekunde kurz auf
+        server_socket.settimeout(1.0) 
+        
+        print(f"[*] Server lauscht auf {config.HOST}:{config.PORT}")
         
         while True:
-            conn, addr = server_socket.accept()
-            clients.append(conn)
-            
-            # Neuen Thread für den Client starten
-            client_thread = threading.Thread(target=handle_client, args=(conn, addr))
-            client_thread.daemon = True # Threads beenden sich, wenn das Hauptprogramm endet
-            client_thread.start()
-            
+            try:
+                conn, addr = server_socket.accept()
+                clients.append(conn)
+                
+                client_thread = threading.Thread(target=handle_client, args=(conn, addr))
+                client_thread.daemon = True 
+                client_thread.start()
+                
+            except socket.timeout:
+                # Timeout nach 1 Sekunde: Wir machen einfach mit der Schleife weiter.
+                # Genau in diesem Moment kann Python das Strg+C registrieren!
+                continue 
+                
     except KeyboardInterrupt:
-        print("\n[*] Server wird heruntergefahren...")
+        # HIER ist die Beendigungsexception!
+        print("\n[*] Server wird durch Benutzer heruntergefahren (Strg+C)...")
     finally:
         server_socket.close()
 
